@@ -1,0 +1,9 @@
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+dump.sql
+script.md
+README.md
+.env.example

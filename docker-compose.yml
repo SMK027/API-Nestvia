@@ -1,0 +1,24 @@
+services:
+  nestvia-api:
+    build: .
+    container_name: nestvia-api
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - proxy
+      - db_internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      # Routage sur api.leofranz.fr avec le préfixe /nestvia
+      - "traefik.http.routers.nestvia-api.rule=Host(`api.leofranz.fr`) && PathPrefix(`/nestvia`)"
+      - "traefik.http.routers.nestvia-api.entrypoints=websecure"
+      - "traefik.http.routers.nestvia-api.tls.certresolver=le"
+      - "traefik.http.services.nestvia-api.loadbalancer.server.port=3000"
+
+networks:
+  proxy:
+    external: true
+  db_internal:
+    external: true

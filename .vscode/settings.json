@@ -1,0 +1,9 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "npm install": true,
+        "/^cd \"/home/smk/Bureau/API Nestvia\" && node -e \"\ntry \\{\n  require\\('\\./src/config/database'\\);\n  require\\('\\./src/middleware/auth'\\);\n  require\\('\\./src/routes/auth'\\);\n  require\\('\\./src/routes/tentatives'\\);\n  require\\('\\./src/routes/biens'\\);\n  require\\('\\./src/routes/communes'\\);\n  require\\('\\./src/routes/compte'\\);\n  require\\('\\./src/routes/favoris'\\);\n  require\\('\\./src/routes/notifications'\\);\n  require\\('\\./src/routes/photos'\\);\n  require\\('\\./src/routes/reservations'\\);\n  require\\('\\./src/routes/tarifs'\\);\n  console\\.log\\('Tous les modules se chargent correctement'\\);\n\\} catch\\(e\\) \\{\n  console\\.error\\(e\\);\n  process\\.exit\\(1\\);\n\\}\n\" 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
