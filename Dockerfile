@@ -9,6 +9,6 @@ COPY src/ ./src/
 
 USER node
 
-EXPOSE 3000
+EXPOSE ${PORT:-3000}
 
 CMD ["node", "src/index.js"]
