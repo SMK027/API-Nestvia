@@ -19,6 +19,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const PREFIX = '/nestvia';
 
+// Derrière Traefik (reverse proxy)
+app.set('trust proxy', 1);
+
 // Sécurité et parsing
 app.use(helmet());
 app.use(cors());

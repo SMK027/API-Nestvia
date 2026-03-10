@@ -30,7 +30,9 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 
     const user = rows[0];
-    const valid = await bcrypt.compare(password, user.pass_locataire);
+    // PHP bcrypt utilise $2y$, Node.js bcrypt attend $2b$ (compatible)
+    const hash = user.pass_locataire.replace(/^\$2y\$/, '$2b$');
+    const valid = await bcrypt.compare(password, hash);
     if (!valid) {
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
