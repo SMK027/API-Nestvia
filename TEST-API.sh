@@ -25,7 +25,7 @@ curl -s "$BASE/biens" | jq
 echo "=== Login ==="
 TOKEN=$(curl -s -X POST "$BASE/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email": "contact@leofranz.fr", "password": "6zfx8##RJ6vZtXFmVk11"}' | jq -r '.token')
+  -d '{"email": "contact@leofranz.fr", "password": "password"}' | jq -r '.token')
 echo "Token: $TOKEN"
 
 # ============================================================
