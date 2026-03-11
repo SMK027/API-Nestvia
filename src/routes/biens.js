@@ -69,8 +69,8 @@ router.get('/:id/blocages', async (req, res) => {
 router.get('/:id/photos', async (req, res) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT id_photo, nom_photo, lien_photo, date_upload FROM photo WHERE id_bien = ? ORDER BY date_upload',
-      [req.params.id]
+      'SELECT id_photo, nom_photo, CONCAT(?, lien_photo) AS lien_photo, date_upload FROM photo WHERE id_bien = ? ORDER BY date_upload',
+      [process.env.APP_URL || 'https://nestvia.leofranz.fr', req.params.id]
     );
     res.json(rows);
   } catch (err) {

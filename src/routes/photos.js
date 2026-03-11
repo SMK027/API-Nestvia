@@ -9,7 +9,8 @@ router.use(authenticate);
 router.get('/', async (_req, res) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT id_photo, nom_photo, lien_photo, id_bien, date_upload FROM photo ORDER BY date_upload DESC'
+      'SELECT id_photo, nom_photo, CONCAT(?, lien_photo) AS lien_photo, id_bien, date_upload FROM photo ORDER BY date_upload DESC',
+      [process.env.APP_URL || 'https://nestvia.leofranz.fr']
     );
     res.json(rows);
   } catch (err) {
@@ -22,8 +23,8 @@ router.get('/', async (_req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT id_photo, nom_photo, lien_photo, id_bien, date_upload FROM photo WHERE id_photo = ?',
-      [req.params.id]
+      'SELECT id_photo, nom_photo, CONCAT(?, lien_photo) AS lien_photo, id_bien, date_upload FROM photo WHERE id_photo = ?',
+      [process.env.APP_URL || 'https://nestvia.leofranz.fr', req.params.id]
     );
 
     if (rows.length === 0) {
