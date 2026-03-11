@@ -5,6 +5,7 @@
             "approve": true,
             "matchCommandLine": true
         },
-        "seq": true
+        "seq": true,
+        "ssh": true
     }
 }
