@@ -2,6 +2,8 @@
 
 API REST pour la gestion de locations — accès utilisateur (locataire).
 
+**URL de production** : `https://api.leofranz.fr/nestvia`
+
 ## Architecture
 
 ```
@@ -14,7 +16,7 @@ src/
 └── routes/
     ├── auth.js           # POST /login
     ├── tentatives.js     # POST /tentatives (public)
-    ├── biens.js          # GET /biens, /biens/:id, /biens/:id/blocages, photos, tarifs
+    ├── biens.js          # GET /biens (recherche), /biens/:id, blocages, photos, tarifs, avis
     ├── communes.js       # GET /communes, /communes/:id
     ├── compte.js         # GET|PUT /compte
     ├── favoris.js        # GET /favoris
@@ -39,11 +41,29 @@ Tous les endpoints sont préfixés par `/nestvia`. Tous requièrent un JWT sauf 
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/nestvia/biens` | Liste de tous les biens |
+| GET | `/nestvia/biens` | Liste des biens (avec filtres de recherche, voir ci-dessous) |
 | GET | `/nestvia/biens/:id` | Détail d'un bien + prestations |
 | GET | `/nestvia/biens/:id/blocages` | Blocages du bien |
-| GET | `/nestvia/biens/:id/photos` | Photos du bien |
+| GET | `/nestvia/biens/:id/photos` | Photos du bien (URLs complètes) |
 | GET | `/nestvia/biens/:id/tarifs` | Tarifs du bien (optionnel: `?date_debut=&date_fin=`) |
+| GET | `/nestvia/biens/:id/avis` | Avis validés du bien |
+| POST | `/nestvia/biens/:id/avis` | Créer un avis (body: `id_reservation`, `rating` 1-5, `comment`) |
+
+#### Filtres de recherche des biens
+
+`GET /nestvia/biens` accepte les query params suivants, combinables :
+
+| Paramètre | Description | Exemple |
+|-----------|-------------|---------|
+| `nb_personnes` | Nombre minimum de couchages | `?nb_personnes=4` |
+| `tarif_min` | Tarif semaine minimum (€) | `?tarif_min=100` |
+| `tarif_max` | Tarif semaine maximum (€) | `?tarif_max=300` |
+| `type_bien` | ID du type de bien | `?type_bien=2` |
+| `animaux` | Animaux autorisés (`oui` / `non`) | `?animaux=oui` |
+| `commune` | ID de la commune | `?commune=30438` |
+| `prestations` | IDs des prestations requises (toutes doivent être présentes) | `?prestations=1,3,5` |
+
+Exemple combiné : `GET /nestvia/biens?nb_personnes=4&animaux=oui&tarif_max=300`
 
 ### Communes
 
@@ -57,7 +77,9 @@ Tous les endpoints sont préfixés par `/nestvia`. Tous requièrent un JWT sauf 
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/nestvia/compte` | Infos du compte connecté |
-| PUT | `/nestvia/compte` | Mise à jour du compte |
+| PUT | `/nestvia/compte` | Mise à jour du compte (champs autorisés uniquement) |
+
+Champs modifiables : `nom_locataire`, `prenom_locataire`, `dna_locataire`, `email_locataire`, `rue_locataire`, `tel_locataire`, `comp_locataire`, `id_commune`, `raison_sociale`, `siret`, `password`.
 
 ### Favoris
 
@@ -76,8 +98,10 @@ Tous les endpoints sont préfixés par `/nestvia`. Tous requièrent un JWT sauf 
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/nestvia/photos` | Toutes les photos |
+| GET | `/nestvia/photos` | Toutes les photos (URLs complètes) |
 | GET | `/nestvia/photos/:id` | Détail d'une photo |
+
+Les liens photos sont retournés en URL complète (préfixés par `APP_URL`).
 
 ### Réservations
 
@@ -85,13 +109,29 @@ Tous les endpoints sont préfixés par `/nestvia`. Tous requièrent un JWT sauf 
 |---------|-------|-------------|
 | GET | `/nestvia/reservations` | Réservations du compte connecté |
 | GET | `/nestvia/reservations/:id` | Détail d'une réservation |
-| POST | `/nestvia/reservations` | Créer une réservation |
+| POST | `/nestvia/reservations` | Créer une réservation (body: `date_debut`, `date_fin`, `id_bien`, `id_tarif`) |
+
+Le montant total est calculé automatiquement (nombre de semaines × tarif).
 
 ### Tarifs
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/nestvia/tarifs?id_bien=X` | Tarifs d'un bien (optionnel: `&date_debut=&date_fin=`) |
+
+## Variables d'environnement
+
+| Variable | Description | Exemple |
+|----------|-------------|---------|
+| `DB_HOST` | Hôte MariaDB | `mariadb-central` |
+| `DB_PORT` | Port MariaDB | `3306` |
+| `DB_USER` | Utilisateur BDD | `nestvia` |
+| `DB_PASSWORD` | Mot de passe BDD | — |
+| `DB_NAME` | Nom de la base | `nestvia` |
+| `JWT_SECRET` | Clé secrète JWT | — |
+| `JWT_EXPIRES_IN` | Durée de validité du token | `24h` |
+| `PORT` | Port d'écoute de l'API | `4000` |
+| `APP_URL` | URL de l'application (préfixe photos) | `https://nestvia.leofranz.fr` |
 
 ## Déploiement
 
@@ -115,6 +155,15 @@ Le conteneur se connecte automatiquement aux réseaux `proxy` (Traefik) et `db_i
 ```bash
 curl https://api.leofranz.fr/nestvia/health
 ```
+
+## Sécurité
+
+- **Authentification JWT** sur tous les endpoints sauf login et tentatives
+- **Rate limiting** : 20 requêtes / 15 min sur le login, 50 / 15 min sur les tentatives
+- **Helmet** : headers de sécurité HTTP
+- **Requêtes paramétrées** : protection contre les injections SQL
+- **Whitelist des champs** : seuls les champs autorisés sont modifiables sur le compte
+- **Trust proxy** : configuré pour fonctionner derrière Traefik
 
 ## Authentification
 
