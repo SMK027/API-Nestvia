@@ -23,7 +23,8 @@ src/
     ├── notifications.js  # GET /notifications, PATCH /notifications/:id/read
     ├── photos.js         # GET /photos, /photos/:id
     ├── reservations.js   # GET|POST /reservations
-    └── tarifs.js         # GET /tarifs?id_bien=...
+    ├── tarifs.js         # GET /tarifs?id_bien=...
+    └── types-bien.js     # GET /types-bien (recherche), /types-bien/:id
 ```
 
 ## Endpoints
@@ -72,6 +73,8 @@ Exemple combiné : `GET /nestvia/biens?nb_personnes=4&animaux=oui&tarif_max=300`
 | GET | `/nestvia/communes` | Liste (filtres: `?search=&departement=&limit=`) |
 | GET | `/nestvia/communes/:id` | Détail d'une commune |
 
+Recherche par nom ou code postal : `GET /nestvia/communes?search=mont`
+
 ### Compte
 
 | Méthode | Route | Description |
@@ -118,6 +121,15 @@ Le montant total est calculé automatiquement (nombre de semaines × tarif).
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/nestvia/tarifs?id_bien=X` | Tarifs d'un bien (optionnel: `&date_debut=&date_fin=`) |
+
+### Types de bien
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/nestvia/types-bien` | Liste des types de bien (optionnel: `?search=`) |
+| GET | `/nestvia/types-bien/:id` | Détail d'un type de bien |
+
+Recherche par description : `GET /nestvia/types-bien?search=maison`
 
 ## Variables d'environnement
 
