@@ -6,14 +6,76 @@ const router = express.Router();
 router.use(authenticate);
 
 // GET /nestvia/biens — Liste de tous les biens
-router.get('/', async (_req, res) => {
+// Query params optionnels : nb_personnes, tarif_max, tarif_min, type_bien, animaux, commune, prestations (ids séparés par virgule)
+router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.execute(`
-      SELECT b.*, tb.des_typebien, c.nom_commune, c.cp_commune
+    const { nb_personnes, tarif_max, tarif_min, type_bien, animaux, commune, prestations } = req.query;
+
+    const conditions = [];
+    const params = [];
+    const joins = [];
+
+    if (nb_personnes) {
+      conditions.push('CAST(b.nb_couchage AS UNSIGNED) >= ?');
+      params.push(parseInt(nb_personnes, 10));
+    }
+
+    if (type_bien) {
+      conditions.push('b.id_typebien = ?');
+      params.push(parseInt(type_bien, 10));
+    }
+
+    if (animaux) {
+      conditions.push('b.animaux_bien = ?');
+      params.push(animaux.toLowerCase() === 'oui' ? 'Oui' : 'Non');
+    }
+
+    if (commune) {
+      conditions.push('b.id_commune = ?');
+      params.push(parseInt(commune, 10));
+    }
+
+    if (tarif_min || tarif_max) {
+      joins.push('INNER JOIN tarif t_filtre ON t_filtre.id_bien = b.id_bien');
+      if (tarif_min) {
+        conditions.push('CAST(t_filtre.tarif AS DECIMAL(10,2)) >= ?');
+        params.push(parseFloat(tarif_min));
+      }
+      if (tarif_max) {
+        conditions.push('CAST(t_filtre.tarif AS DECIMAL(10,2)) <= ?');
+        params.push(parseFloat(tarif_max));
+      }
+    }
+
+    if (prestations) {
+      const ids = prestations.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+      if (ids.length > 0) {
+        const placeholders = ids.map(() => '?').join(',');
+        joins.push(`INNER JOIN secompose sc_filtre ON sc_filtre.id_bien = b.id_bien AND sc_filtre.id_prestation IN (${placeholders})`);
+        params.push(...ids);
+        conditions.push('1=1 GROUP BY b.id_bien HAVING COUNT(DISTINCT sc_filtre.id_prestation) = ?');
+        params.push(ids.length);
+      }
+    }
+
+    let query = `
+      SELECT DISTINCT b.*, tb.des_typebien, c.nom_commune, c.cp_commune
       FROM bien b
       LEFT JOIN type_bien tb ON b.id_typebien = tb.id_typebien
       LEFT JOIN commune c ON b.id_commune = c.id_commune
-    `);
+      ${joins.join('\n      ')}
+    `;
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    // Si prestations avec GROUP BY, ne pas ajouter de ORDER BY avant
+    if (!prestations) {
+      query += ' ORDER BY b.nom_bien';
+    }
+
+    const [rows] = await pool.execute(query, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
