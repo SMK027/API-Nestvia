@@ -146,4 +146,74 @@ function getWeekNumber(date) {
   return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
+// GET /nestvia/biens/:id/avis — Avis validés d'un bien
+router.get('/:id/avis', async (req, res) => {
+  try {
+    const [rows] = await pool.execute(`
+      SELECT r.id_review, r.rating, r.comment, r.date_created,
+             l.prenom_locataire, l.nom_locataire
+      FROM reviews r
+      JOIN locataire l ON r.id_locataire = l.id_locataire
+      WHERE r.id_bien = ? AND r.is_validated = 1
+      ORDER BY r.date_created DESC
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+// POST /nestvia/biens/:id/avis — Créer un avis pour un bien
+router.post('/:id/avis', async (req, res) => {
+  try {
+    const { id_reservation, rating, comment } = req.body;
+    const id_bien = req.params.id;
+
+    if (!id_reservation || !rating) {
+      return res.status(400).json({ error: 'Champs requis : id_reservation, rating' });
+    }
+
+    const ratingNum = parseInt(rating, 10);
+    if (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      return res.status(400).json({ error: 'Le rating doit être entre 1 et 5' });
+    }
+
+    // Vérifier que la réservation appartient au user et concerne ce bien
+    const [reservations] = await pool.execute(
+      'SELECT id_reservations FROM reservation WHERE id_reservations = ? AND id_locataire = ? AND id_bien = ?',
+      [id_reservation, req.user.id, id_bien]
+    );
+    if (reservations.length === 0) {
+      return res.status(404).json({ error: 'Réservation introuvable pour ce bien et ce compte' });
+    }
+
+    // Vérifier qu'il n'y a pas déjà un avis pour cette réservation
+    const [existing] = await pool.execute(
+      'SELECT id_review FROM reviews WHERE id_reservation = ? AND id_locataire = ?',
+      [id_reservation, req.user.id]
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Un avis existe déjà pour cette réservation' });
+    }
+
+    const [result] = await pool.execute(`
+      INSERT INTO reviews (id_locataire, id_bien, id_reservation, rating, comment)
+      VALUES (?, ?, ?, ?, ?)
+    `, [req.user.id, id_bien, id_reservation, ratingNum, comment || null]);
+
+    res.status(201).json({
+      id_review: result.insertId,
+      id_bien: parseInt(id_bien, 10),
+      id_reservation: parseInt(id_reservation, 10),
+      rating: ratingNum,
+      comment: comment || null,
+      is_validated: 0,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
 module.exports = router;
