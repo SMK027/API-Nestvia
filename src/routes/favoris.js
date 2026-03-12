@@ -68,19 +68,19 @@ router.post('/', async (req, res) => {
   }
 });
 
-// DELETE /nestvia/favoris/:id — Supprimer un favori
-router.delete('/:id', async (req, res) => {
+// DELETE /nestvia/favoris/:id_bien — Supprimer un bien des favoris
+router.delete('/:id_bien', async (req, res) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT id_favori FROM favoris WHERE id_favori = ? AND id_locataire = ?',
-      [req.params.id, req.user.id]
+      'SELECT id_favori FROM favoris WHERE id_bien = ? AND id_locataire = ?',
+      [req.params.id_bien, req.user.id]
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Favori introuvable' });
+      return res.status(404).json({ error: 'Ce bien n\'est pas dans vos favoris' });
     }
 
-    await pool.execute('DELETE FROM favoris WHERE id_favori = ? AND id_locataire = ?', [req.params.id, req.user.id]);
+    await pool.execute('DELETE FROM favoris WHERE id_bien = ? AND id_locataire = ?', [req.params.id_bien, req.user.id]);
 
     res.json({ message: 'Favori supprimé' });
   } catch (err) {

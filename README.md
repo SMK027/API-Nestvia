@@ -106,7 +106,7 @@ Champs modifiables : `nom_locataire`, `prenom_locataire`, `dna_locataire`, `emai
 |---------|-------|-------------|
 | GET | `/nestvia/favoris` | Favoris du compte connecté |
 | POST | `/nestvia/favoris` | Ajouter un bien aux favoris (body: `id_bien`) |
-| DELETE | `/nestvia/favoris/:id` | Supprimer un favori |
+| DELETE | `/nestvia/favoris/:id_bien` | Supprimer un bien des favoris |
 
 ### Notifications
 
