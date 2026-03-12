@@ -27,6 +27,162 @@ src/
     └── types-bien.js     # GET /types-bien (recherche), /types-bien/:id
 ```
 
+## Middleware
+
+### Qu'est-ce qu'un middleware ?
+
+Un **middleware** est une fonction intermédiaire qui s'exécute **entre la réception d'une requête HTTP et l'envoi de la réponse**. Dans Express, chaque requête traverse une chaîne de middlewares avant d'atteindre le code métier de la route (le *handler*).
+
+Un middleware reçoit trois paramètres :
+- **`req`** : l'objet requête (contient les headers, le body, les paramètres de l'URL, etc.)
+- **`res`** : l'objet réponse (permet d'envoyer une réponse HTTP au client)
+- **`next`** : une fonction qui passe la main au middleware ou au handler suivant dans la chaîne
+
+```
+Requête HTTP
+     │
+     ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   helmet()  │────>│   cors()    │────>│   json()    │────>│ authenticate│──── next() ───> Handler de route
+│  (sécurité) │     │  (origines) │     │  (parsing)  │     │   (JWT)     │         OU
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘    res.status(401)
+                                                                                (rejet immédiat)
+```
+
+**Principe clé** : si un middleware appelle `next()`, la requête continue vers l'étape suivante. S'il envoie directement une réponse (ex. `res.status(401).json(...)`), la chaîne s'arrête là — la requête est rejetée avant même d'atteindre la route.
+
+### Les middlewares globaux de cette API
+
+Ces middlewares s'appliquent à **toutes les requêtes** entrantes. Ils sont déclarés dans `index.js` via `app.use(...)` :
+
+| Middleware | Rôle |
+|------------|------|
+| `helmet()` | Ajoute automatiquement des headers HTTP de sécurité (protection contre le clickjacking, le sniffing MIME, le XSS, etc.) |
+| `cors()` | Autorise les requêtes cross-origin (permet au front-end hébergé sur un autre domaine d'appeler l'API) |
+| `express.json()` | Parse le body JSON des requêtes entrantes et le rend accessible via `req.body` |
+
+### Le middleware d'authentification (`auth.js`)
+
+Ce middleware est spécifique à cette API. Son rôle est de **vérifier le token JWT** envoyé par le client avant d'autoriser l'accès aux routes protégées.
+
+#### Code source
+
+```js
+// src/middleware/auth.js
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET;
+
+function authenticate(req, res, next) {
+  // 1. Récupérer le header Authorization
+  const header = req.headers.authorization;
+
+  // 2. Vérifier que le header existe et commence par "Bearer "
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token manquant' });
+  }
+
+  // 3. Extraire le token (tout ce qui suit "Bearer ")
+  const token = header.slice(7);
+
+  try {
+    // 4. Vérifier et décoder le token avec la clé secrète
+    const payload = jwt.verify(token, JWT_SECRET);
+
+    // 5. Injecter les données utilisateur dans la requête
+    req.user = payload;
+
+    // 6. Passer au handler suivant (la route)
+    next();
+  } catch {
+    // 7. Token invalide ou expiré → rejet
+    return res.status(401).json({ error: 'Token invalide ou expiré' });
+  }
+}
+
+module.exports = authenticate;
+```
+
+#### Fonctionnement étape par étape
+
+```
+Client envoie : GET /nestvia/biens
+                Authorization: Bearer eyJhbGciOi...
+
+     │
+     ▼
+┌──────────────────────────────────────────────────┐
+│            Middleware authenticate()              │
+│                                                  │
+│  1. Lit req.headers.authorization                │
+│     → "Bearer eyJhbGciOi..."                     │
+│                                                  │
+│  2. Vérifie le format "Bearer <token>"           │
+│     → Si absent ou mal formé : 401 Token manquant│
+│                                                  │
+│  3. Extrait le token : header.slice(7)           │
+│     → "eyJhbGciOi..."                            │
+│                                                  │
+│  4. jwt.verify(token, JWT_SECRET)                │
+│     → Décode le token ET vérifie la signature    │
+│     → Vérifie aussi que le token n'est pas expiré│
+│     → Si échec : 401 Token invalide ou expiré    │
+│                                                  │
+│  5. req.user = payload                           │
+│     → Stocke { id, email, iat, exp } dans req    │
+│     → Accessible ensuite par toutes les routes   │
+│                                                  │
+│  6. next() → passe au handler de la route        │
+└──────────────────────────────────────────────────┘
+     │
+     ▼
+Handler de route : accède à req.user.id pour
+savoir quel utilisateur fait la requête
+```
+
+#### Comment le middleware est appliqué aux routes
+
+Le middleware `authenticate` n'est **pas appliqué globalement** à toutes les routes. Il est appliqué **par routeur**, ce qui permet d'avoir des routes publiques (login, tentatives) et des routes protégées :
+
+```js
+// index.js
+
+// Routes PUBLIQUES — pas de middleware auth
+app.use(`${PREFIX}/auth`, authRoutes);
+app.use(`${PREFIX}/tentatives`, tentativesRoutes);
+
+// Routes PROTÉGÉES — auth appliquée dans chaque routeur
+app.use(`${PREFIX}/biens`, biensRoutes);
+app.use(`${PREFIX}/compte`, compteRoutes);
+// ...
+```
+
+Dans chaque fichier de route protégée, le middleware est activé via `router.use(authenticate)` :
+
+```js
+// src/routes/biens.js (et tous les autres fichiers de routes protégées)
+const authenticate = require('../middleware/auth');
+const router = express.Router();
+
+router.use(authenticate);  // Toutes les routes de ce routeur passent par authenticate
+
+router.get('/', async (req, res) => {
+  // req.user est disponible ici grâce au middleware
+  // ...
+});
+```
+
+Cela signifie que **chaque requête** vers `/nestvia/biens`, `/nestvia/compte`, `/nestvia/favoris`, etc. passe d'abord par `authenticate`. Si le token est valide, `req.user` contient les informations de l'utilisateur connecté (son `id`, son `email`) et la route peut les utiliser pour filtrer les données (ex. ne retourner que les réservations de cet utilisateur).
+
+#### Résumé des réponses possibles
+
+| Situation | Résultat |
+|-----------|----------|
+| Pas de header `Authorization` | **401** — `{ error: "Token manquant" }` |
+| Header présent mais ne commence pas par `Bearer ` | **401** — `{ error: "Token manquant" }` |
+| Token présent mais signature invalide (falsifié) | **401** — `{ error: "Token invalide ou expiré" }` |
+| Token présent mais expiré (> 24h) | **401** — `{ error: "Token invalide ou expiré" }` |
+| Token valide | **Accès autorisé** — `req.user` contient le payload du JWT, la requête continue vers la route |
+
 ## Endpoints
 
 Tous les endpoints sont préfixés par `/nestvia`. Tous requièrent un JWT sauf mention contraire.
