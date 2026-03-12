@@ -195,9 +195,71 @@ curl https://api.leofranz.fr/nestvia/health
 - **Whitelist des champs** : seuls les champs autorisés sont modifiables sur le compte
 - **Trust proxy** : configuré pour fonctionner derrière Traefik
 
-## Authentification
+## Authentification — JWT & Bearer
 
-L'API utilise des JWT (JSON Web Tokens). Pour obtenir un token :
+### Qu'est-ce qu'un JWT ?
+
+Un **JWT** (JSON Web Token) est un jeton d'authentification sous forme de chaîne de caractères. Il permet au serveur de vérifier l'identité d'un utilisateur **sans avoir à interroger la base de données à chaque requête**.
+
+Un JWT est composé de **trois parties** séparées par des points (`.`) :
+
+```
+eyJhbGciOiJIUzI1NiJ9.eyJpZCI6NDIsImVtYWlsIjoiYUBiLmNvbSJ9.SflKxwRJSMeKKF2QT4fwpM
+|_______ HEADER _______||____________ PAYLOAD _______________||______ SIGNATURE _____|
+```
+
+| Partie | Contenu | Rôle |
+|--------|---------|------|
+| **Header** | Algorithme de signature + type de token | Indique *comment* le token est signé (ex. `HS256`) |
+| **Payload** | Données utiles (id utilisateur, email, date d'expiration…) | Contient les informations sur l'utilisateur (appelées *claims*) |
+| **Signature** | Hash du header + payload + clé secrète du serveur | Garantit que le token n'a **pas été modifié**. Seul le serveur peut la produire car il est le seul à connaître la clé secrète (`JWT_SECRET`) |
+
+> **Analogie simple** : un JWT, c'est comme un badge visiteur tamponné. Le payload, c'est le nom écrit dessus ; la signature, c'est le tampon impossible à falsifier. Quiconque lit le badge sait qui vous êtes, mais personne ne peut en fabriquer un faux sans le tampon officiel.
+
+Concrètement, le **payload** est encodé en Base64 (lisible par n'importe qui), mais la **signature** empêche toute modification : si un seul caractère du payload est changé, la signature ne correspond plus et le serveur rejette le token.
+
+### Qu'est-ce que Bearer ?
+
+**Bearer** (« porteur » en anglais) est le **schéma d'authentification HTTP** utilisé pour transmettre un JWT au serveur. C'est une convention standardisée ([RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)) : on envoie le token dans le header HTTP `Authorization` avec le préfixe `Bearer` :
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJpZCI6NDJ9.SflKxw...
+```
+
+Le principe est simple : **quiconque possède (« porte ») ce token est considéré comme authentifié**. C'est pour cela qu'il ne faut jamais le partager ou l'exposer côté client de manière non sécurisée.
+
+### Flux d'authentification dans cette API
+
+```
+┌──────────┐                         ┌──────────┐
+│  Client  │                         │ Serveur  │
+└────┬─────┘                         └────┬─────┘
+     │                                    │
+     │  1. POST /nestvia/auth/login       │
+     │    { email, password }             │
+     │ ──────────────────────────────────>│
+     │                                    │  Vérifie email + password en BDD
+     │                                    │  Génère un JWT signé avec JWT_SECRET
+     │  2. Réponse : { token: "eyJ..." } │
+     │ <──────────────────────────────────│
+     │                                    │
+     │  3. GET /nestvia/biens             │
+     │    Authorization: Bearer eyJ...    │
+     │ ──────────────────────────────────>│
+     │                                    │  Vérifie la signature du JWT
+     │                                    │  Extrait l'id utilisateur du payload
+     │  4. Réponse : données protégées   │
+     │ <──────────────────────────────────│
+```
+
+1. Le client envoie ses identifiants (email + mot de passe) au endpoint de login.
+2. Le serveur vérifie les identifiants, puis renvoie un **JWT signé** valide pendant la durée définie par `JWT_EXPIRES_IN` (ici `24h`).
+3. Pour chaque requête protégée, le client inclut le token dans le header `Authorization: Bearer <token>`.
+4. Le middleware `auth.js` décode le token, vérifie sa signature et sa validité, puis injecte les infos utilisateur dans la requête. Si le token est absent, expiré ou invalide, la requête est rejetée avec un code **401**.
+
+### Exemple concret
+
+**1. Obtenir un token :**
 
 ```bash
 curl -X POST https://api.leofranz.fr/nestvia/auth/login \
@@ -207,9 +269,11 @@ curl -X POST https://api.leofranz.fr/nestvia/auth/login \
 
 Réponse : `{ "token": "eyJ..." }`
 
-Utilisation dans les requêtes suivantes :
+**2. Utiliser le token dans les requêtes suivantes :**
 
 ```bash
 curl https://api.leofranz.fr/nestvia/biens \
   -H "Authorization: Bearer eyJ..."
 ```
+
+> **Résumé** : JWT = le format du jeton (header.payload.signature) ; Bearer = la méthode pour l'envoyer au serveur (via le header HTTP `Authorization`).
