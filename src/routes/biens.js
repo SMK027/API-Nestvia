@@ -226,6 +226,56 @@ router.get('/:id/avis', async (req, res) => {
   }
 });
 
+// GET /nestvia/biens/:id/disponibilite — Vérifier la disponibilité d'un bien sur une plage de dates
+router.get('/:id/disponibilite', async (req, res) => {
+  try {
+    const { date_debut, date_fin } = req.query;
+
+    if (!date_debut || !date_fin) {
+      return res.status(400).json({ error: 'Paramètres requis : date_debut, date_fin (YYYY-MM-DD)' });
+    }
+
+    const start = new Date(date_debut);
+    const end = new Date(date_fin);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ error: 'Format de date invalide (attendu: YYYY-MM-DD)' });
+    }
+    if (start >= end) {
+      return res.status(400).json({ error: 'La date de début doit être antérieure à la date de fin' });
+    }
+
+    // Vérifier que le bien existe
+    const [biens] = await pool.execute('SELECT id_bien FROM bien WHERE id_bien = ?', [req.params.id]);
+    if (biens.length === 0) {
+      return res.status(404).json({ error: 'Bien introuvable' });
+    }
+
+    // Vérifier les réservations en conflit
+    const [reservations] = await pool.execute(`
+      SELECT id_reservations, date_debut, date_fin FROM reservation
+      WHERE id_bien = ? AND date_debut < ? AND date_fin > ?
+    `, [req.params.id, date_fin, date_debut]);
+
+    // Vérifier les blocages en conflit
+    const [blocages] = await pool.execute(`
+      SELECT id_blocage, date_debut, date_fin, motif FROM blocage
+      WHERE id_bien = ? AND date_debut < ? AND date_fin > ?
+    `, [req.params.id, date_fin, date_debut]);
+
+    const disponible = reservations.length === 0 && blocages.length === 0;
+
+    res.json({
+      disponible,
+      reservations_conflit: reservations,
+      blocages_conflit: blocages,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
 // POST /nestvia/biens/:id/avis — Créer un avis pour un bien
 router.post('/:id/avis', async (req, res) => {
   try {

@@ -47,6 +47,7 @@ Tous les endpoints sont préfixés par `/nestvia`. Tous requièrent un JWT sauf 
 | GET | `/nestvia/biens/:id/blocages` | Blocages du bien |
 | GET | `/nestvia/biens/:id/photos` | Photos du bien (URLs complètes) |
 | GET | `/nestvia/biens/:id/tarifs` | Tarifs du bien (optionnel: `?date_debut=&date_fin=`) |
+| GET | `/nestvia/biens/:id/disponibilite` | Vérifier la disponibilité (`?date_debut=&date_fin=`) |
 | GET | `/nestvia/biens/:id/avis` | Avis validés du bien |
 | POST | `/nestvia/biens/:id/avis` | Créer un avis (body: `id_reservation`, `rating` 1-5, `comment`) |
 
@@ -65,6 +66,21 @@ Tous les endpoints sont préfixés par `/nestvia`. Tous requièrent un JWT sauf 
 | `prestations` | IDs des prestations requises (toutes doivent être présentes) | `?prestations=1,3,5` |
 
 Exemple combiné : `GET /nestvia/biens?nb_personnes=4&animaux=oui&tarif_max=300`
+
+#### Vérification de disponibilité
+
+`GET /nestvia/biens/:id/disponibilite?date_debut=2026-07-05&date_fin=2026-07-19`
+
+Retourne :
+```json
+{
+  "disponible": true,
+  "reservations_conflit": [],
+  "blocages_conflit": []
+}
+```
+
+Si le bien est indisponible, `disponible` vaut `false` et les tableaux contiennent les réservations/blocages en conflit.
 
 ### Communes
 
