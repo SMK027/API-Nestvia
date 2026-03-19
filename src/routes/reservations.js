@@ -138,4 +138,36 @@ router.post('/', async (req, res) => {
   }
 });
 
+// DELETE /nestvia/reservations/:id — Annuler une réservation à venir ou en cours
+router.delete('/:id', async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT id_reservations, date_debut, date_fin FROM reservation WHERE id_reservations = ? AND id_locataire = ?',
+      [req.params.id, req.user.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Réservation introuvable' });
+    }
+
+    const reservation = rows[0];
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    if (new Date(reservation.date_fin) < now) {
+      return res.status(400).json({ error: 'Impossible d\'annuler une réservation terminée' });
+    }
+
+    await pool.execute(
+      'DELETE FROM reservation WHERE id_reservations = ? AND id_locataire = ?',
+      [req.params.id, req.user.id]
+    );
+
+    res.json({ message: 'Réservation annulée' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
 module.exports = router;

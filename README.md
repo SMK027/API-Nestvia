@@ -289,6 +289,7 @@ Les liens photos sont retournés en URL complète (préfixés par `APP_URL`).
 | GET | `/nestvia/reservations` | Réservations du compte connecté |
 | GET | `/nestvia/reservations/:id` | Détail d'une réservation |
 | POST | `/nestvia/reservations` | Créer une réservation (body: `date_debut`, `date_fin`, `id_bien`, `id_tarif`) |
+| DELETE | `/nestvia/reservations/:id` | Annuler une réservation à venir ou en cours |
 
 Le montant total est calculé automatiquement (nombre de semaines × tarif).
 
