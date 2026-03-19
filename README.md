@@ -254,8 +254,9 @@ Recherche par nom ou code postal : `GET /nestvia/communes?search=mont`
 |---------|-------|-------------|
 | GET | `/nestvia/compte` | Infos du compte connecté |
 | PUT | `/nestvia/compte` | Mise à jour du compte (champs autorisés uniquement) |
+| PUT | `/nestvia/compte/password` | Modifier le mot de passe (body: `current_password`, `new_password`, `confirm_password`) |
 
-Champs modifiables : `nom_locataire`, `prenom_locataire`, `dna_locataire`, `email_locataire`, `rue_locataire`, `tel_locataire`, `comp_locataire`, `id_commune`, `raison_sociale`, `siret`, `password`.
+Champs modifiables via `PUT /compte` : `nom_locataire`, `prenom_locataire`, `dna_locataire`, `email_locataire`, `rue_locataire`, `tel_locataire`, `comp_locataire`, `id_commune`, `raison_sociale`, `siret`.
 
 ### Favoris
 
