@@ -10,9 +10,9 @@ router.use(authenticate);
 router.get('/', async (req, res) => {
   try {
     const [rows] = await pool.execute(`
-      SELECT id_locataire, nom_locataire, prenom_locataire, dna_locataire,
+      SELECT id_locataire, nom_locataire, prenom_locataire,
              email_locataire, rue_locataire, tel_locataire, comp_locataire,
-             id_commune, raison_sociale, siret
+             id_commune, raison_sociale, siret, created_at
       FROM locataire WHERE id_locataire = ?
     `, [req.user.id]);
 
@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 router.put('/', async (req, res) => {
   try {
     const allowedFields = [
-      'nom_locataire', 'prenom_locataire', 'dna_locataire',
+      'nom_locataire', 'prenom_locataire',
       'email_locataire', 'rue_locataire', 'tel_locataire',
       'comp_locataire', 'id_commune', 'raison_sociale', 'siret'
     ];
@@ -60,9 +60,9 @@ router.put('/', async (req, res) => {
 
     // Retourner les infos mises à jour
     const [rows] = await pool.execute(`
-      SELECT id_locataire, nom_locataire, prenom_locataire, dna_locataire,
+      SELECT id_locataire, nom_locataire, prenom_locataire,
              email_locataire, rue_locataire, tel_locataire, comp_locataire,
-             id_commune, raison_sociale, siret
+             id_commune, raison_sociale, siret, created_at
       FROM locataire WHERE id_locataire = ?
     `, [req.user.id]);
 
