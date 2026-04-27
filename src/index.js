@@ -15,6 +15,7 @@ const photosRoutes = require('./routes/photos');
 const reservationsRoutes = require('./routes/reservations');
 const tarifsRoutes = require('./routes/tarifs');
 const typesBienRoutes = require('./routes/types-bien');
+const prestationsRoutes = require('./routes/prestations');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +43,7 @@ app.use(`${PREFIX}/photos`, photosRoutes);
 app.use(`${PREFIX}/reservations`, reservationsRoutes);
 app.use(`${PREFIX}/tarifs`, tarifsRoutes);
 app.use(`${PREFIX}/types-bien`, typesBienRoutes);
+app.use(`${PREFIX}/prestations`, prestationsRoutes);
 
 // Health check
 app.get(`${PREFIX}/health`, (_req, res) => {
