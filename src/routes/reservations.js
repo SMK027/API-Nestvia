@@ -108,11 +108,11 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Tarif introuvable pour ce bien' });
     }
 
-    // Calculer le montant total (nombre de semaines × tarif)
+    // Calculer le montant total (tarif journalier × nombre de jours)
     const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    const weeks = Math.max(1, Math.ceil(diffDays / 7));
     const prixSemaine = parseFloat(tarifs[0].tarif) || 0;
-    const montantTotal = (weeks * prixSemaine).toFixed(2);
+    const prixJour = prixSemaine / 7;
+    const montantTotal = (prixJour * diffDays).toFixed(2);
 
     // Désactiver le trigger qui bloque l'écriture manuelle de montant_total
     const conn = await pool.getConnection();
