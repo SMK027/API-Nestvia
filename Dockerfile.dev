@@ -1,0 +1,20 @@
+# Image de développement : inclut toutes les dépendances et lance le serveur
+# en mode watch (rechargement automatique via `node --watch`).
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Outils utiles en dev (curl pour healthcheck/tests rapides)
+RUN apk add --no-cache curl
+
+# Installation des dépendances en premier pour profiter du cache Docker
+COPY package.json package-lock.json* ./
+RUN npm install
+
+# Le code sera monté via un volume en dev (cf. docker-compose.dev.yml)
+# mais on copie quand même pour permettre un build autonome si besoin.
+COPY src/ ./src/
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

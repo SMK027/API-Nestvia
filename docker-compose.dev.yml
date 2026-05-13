@@ -1,0 +1,71 @@
+# Stack de développement local pour l'API Nestvia.
+#
+# Lancement :
+#   cp .env.dev.example .env.dev          # à faire une fois
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# L'API est exposée sur http://localhost:3000/nestvia
+# MariaDB est exposée sur localhost:3307 (pour éviter tout conflit avec une
+# instance locale sur 3306). À l'intérieur du réseau Docker, l'API joint
+# la base via l'hôte `mariadb` sur le port 3306.
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    container_name: nestvia-mariadb-dev
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD:-rootpass}
+      MARIADB_DATABASE: ${DB_NAME:-projet_location}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      # Les scripts SQL sont exécutés automatiquement au tout premier démarrage
+      # (uniquement si le volume `mariadb_data` est vide).
+      - ./dump.sql:/docker-entrypoint-initdb.d/01-dump.sql:ro
+      - ./sql/refresh_token.sql:/docker-entrypoint-initdb.d/02-refresh_token.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - nestvia_dev
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: nestvia-api-dev
+    restart: unless-stopped
+    env_file:
+      - .env.dev
+    environment:
+      # On force ces variables pour la stack dev afin de garantir la cohérence
+      # avec le service mariadb ci-dessus, peu importe le contenu de .env.dev.
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      NODE_ENV: development
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # Bind-mount du code source pour le hot-reload via `node --watch`.
+      - ./src:/app/src
+      - ./package.json:/app/package.json:ro
+      - ./package-lock.json:/app/package-lock.json:ro
+      # Volume anonyme pour conserver les node_modules de l'image (évite
+      # qu'un éventuel node_modules de l'hôte ne les écrase).
+      - /app/node_modules
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - nestvia_dev
+
+volumes:
+  mariadb_data:
+
+networks:
+  nestvia_dev:
+    driver: bridge
